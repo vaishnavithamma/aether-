@@ -15,9 +15,9 @@ const MetricsPanel: React.FC<Props> = ({ regions, metadata, onSelectAnomaly }) =
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
           {[
             { label:'ANOMALY REGIONS', value: regions.length },
-            { label:'MAX CONFIDENCE', value: `${(maxConf*100).toFixed(1)}%` },
+            { label:'MAX CONFIDENCE', value: `${metadata.max_confidence?.toFixed(1) || 0}%` },
             { label:'ANOMALOUS PIXELS', value: metadata.total_anomalous_pixels },
-            { label:'PCA VARIANCE', value: `${(metadata.pca_variance_retained*100).toFixed(1)}%` },
+            { label:'PCA VARIANCE', value: `${metadata.pca_variance_retained?.toFixed(1) || 0}%` },
           ].map(m => (
             <div key={m.label} style={{ background:'var(--surface2)', padding:'10px 12px', borderRadius:6 }}>
               <div style={{ fontSize:9, color:'rgba(255,255,255,0.3)', letterSpacing:'0.06em', marginBottom:4 }}>{m.label}</div>

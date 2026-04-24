@@ -11,7 +11,11 @@ export interface DetectionResult {
     pca_variance_retained: number
     unet_final_loss: number
     total_anomalous_pixels: number
+    anomaly_percent?: number
+    max_confidence?: number
+    total_pixels?: number
   }
+  noisy_bands?: string[]
 }
 export interface AnomalyRegion {
   id: number
@@ -27,4 +31,5 @@ export interface UploadResult {
   rgb_preview: string
   estimated_processing_seconds: number
   noisy_bands_detected: number[]
+  bands?: { band_id: string; wavelength: string; thumbnail_b64: string }[]
 }

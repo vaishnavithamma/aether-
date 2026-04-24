@@ -7,6 +7,24 @@ import AnomalyDetail from './AnomalyDetail'
 interface Props { result: DetectionResult; uploadResult: UploadResult; onNewAnalysis: () => void }
 const Dashboard: React.FC<Props> = ({ result, uploadResult, onNewAnalysis }) => {
   const [selectedAnomaly, setSelectedAnomaly] = useState<AnomalyRegion | null>(null)
+
+  const handleExport = () => {
+    const report = {
+      timestamp: new Date().toISOString(),
+      upload_metadata: uploadResult,
+      detection_results: result
+    };
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `spectrashield_report_${uploadResult.file_hash}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100vh', background:'var(--bg)', overflow:'hidden' }}>
       {/* Navbar */}
@@ -20,18 +38,17 @@ const Dashboard: React.FC<Props> = ({ result, uploadResult, onNewAnalysis }) => 
         </span>
         <div style={{ display:'flex', gap:12 }}>
           <button onClick={onNewAnalysis} style={{ padding:'6px 16px', background:'transparent', border:'1px solid var(--border-act)', color:'white', borderRadius:6, fontSize:12, cursor:'pointer' }}>New Analysis</button>
-          <button style={{ padding:'6px 16px', background:'var(--cyan)', color:'#050508', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', border:'none' }}>Export</button>
+          <button onClick={handleExport} style={{ padding:'6px 16px', background:'var(--cyan)', color:'#050508', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', border:'none' }}>Export</button>
         </div>
       </div>
       {/* 3-column layout */}
       <div style={{ display:'flex', flex:1, overflow:'hidden' }}>
-        <BandExplorer fileHash={uploadResult.file_hash} bands={uploadResult.shape.bands} noisyBands={uploadResult.noisy_bands_detected} />
+        <BandExplorer bands={uploadResult.bands || []} noisyBands={result.noisy_bands || []} />
         <SplitViewer
           rgbImage={result.rgb_image || ''}
           heatmapOverlay={result.heatmap_overlay || ''}
           heatmapRaw={result.heatmap_raw || ''}
           anomalyMask={result.anomaly_mask || ''}
-          isDemoMode={!result.rgb_image || result.rgb_image === ''}
         />
         <MetricsPanel regions={result.anomaly_regions} metadata={result.pipeline_metadata} onSelectAnomaly={setSelectedAnomaly} />
       </div>

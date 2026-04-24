@@ -14,10 +14,10 @@ class DoubleConv(nn.Module):
     def forward(self, x): return self.net(x)
 
 class SpectralUNet(nn.Module):
-    """U-Net for unsupervised hyperspectral reconstruction. Input/output: (B, 30, H, W)"""
-    def __init__(self):
+    """U-Net for unsupervised hyperspectral reconstruction."""
+    def __init__(self, in_channels=PCA_COMPONENTS):
         super().__init__()
-        self.enc1 = DoubleConv(PCA_COMPONENTS, UNET_ENC1_CHANNELS)
+        self.enc1 = DoubleConv(in_channels, UNET_ENC1_CHANNELS)
         self.pool1 = nn.MaxPool2d(2)
         self.enc2 = DoubleConv(UNET_ENC1_CHANNELS, UNET_ENC2_CHANNELS)
         self.pool2 = nn.MaxPool2d(2)
@@ -26,7 +26,7 @@ class SpectralUNet(nn.Module):
         self.dec1 = DoubleConv(UNET_ENC2_CHANNELS * 2, UNET_ENC2_CHANNELS)
         self.up2 = nn.ConvTranspose2d(UNET_ENC2_CHANNELS, UNET_ENC1_CHANNELS, 2, stride=2)
         self.dec2 = DoubleConv(UNET_ENC1_CHANNELS * 2, UNET_ENC1_CHANNELS)
-        self.out_conv = nn.Conv2d(UNET_ENC1_CHANNELS, PCA_COMPONENTS, 1)
+        self.out_conv = nn.Conv2d(UNET_ENC1_CHANNELS, in_channels, 1)
 
     def forward(self, x):
         e1 = self.enc1(x)
@@ -40,7 +40,7 @@ def train_unet(pca_cube, device="cpu"):
     """Train SpectralUNet on full hyperspectral PCA cube using patch-based approach."""
     import numpy as np
     H, W, C = pca_cube.shape
-    model = SpectralUNet().to(device)
+    model = SpectralUNet(in_channels=C).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=UNET_LR)
     loss_fn = nn.MSELoss()
     patches = []
