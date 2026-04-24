@@ -31,7 +31,7 @@ const Dashboard: React.FC<Props> = ({ result, uploadResult, onNewAnalysis }) => 
           heatmapOverlay={result.heatmap_overlay || ''}
           heatmapRaw={result.heatmap_raw || ''}
           anomalyMask={result.anomaly_mask || ''}
-          isDemoMode={result.rgb_image === ''}
+          isDemoMode={!result.rgb_image || result.rgb_image === ''}
         />
         <MetricsPanel regions={result.anomaly_regions} metadata={result.pipeline_metadata} onSelectAnomaly={setSelectedAnomaly} />
       </div>
