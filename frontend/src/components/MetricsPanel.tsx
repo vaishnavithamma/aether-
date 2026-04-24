@@ -5,9 +5,8 @@ interface Props {
   metadata: { bands_removed:number[]; pca_variance_retained:number; unet_final_loss:number; total_anomalous_pixels:number }
   onSelectAnomaly: (r: AnomalyRegion) => void
 }
-const HEAT_COLOR = (conf: number) => conf > 0.9 ? '#ff2d55' : conf > 0.7 ? '#ff6b35' : '#ffb347'
+const HEAT_COLOR = (conf: number) => conf > 90 ? '#ff2d55' : conf > 70 ? '#ff6b35' : '#ffb347'
 const MetricsPanel: React.FC<Props> = ({ regions, metadata, onSelectAnomaly }) => {
-  const maxConf = regions.length ? Math.max(...regions.map(r=>r.confidence)) : 0
   return (
     <div style={{ width:300, background:'var(--surface1)', borderLeft:'1px solid var(--border)', display:'flex', flexDirection:'column', overflow:'hidden', flexShrink:0 }}>
       <div style={{ padding:16, borderBottom:'1px solid var(--border)' }}>
@@ -39,7 +38,7 @@ const MetricsPanel: React.FC<Props> = ({ regions, metadata, onSelectAnomaly }) =
               <div style={{ fontSize:12, fontFamily:'JetBrains Mono, monospace', color:'white' }}>Region {String(r.id).padStart(2,'0')}</div>
               <div style={{ fontSize:10, color:'rgba(255,255,255,0.3)', marginTop:2 }}>({r.centroid.x}, {r.centroid.y}) · {r.pixel_count}px</div>
             </div>
-            <div style={{ fontFamily:'JetBrains Mono, monospace', fontSize:13, color:HEAT_COLOR(r.confidence) }}>{(r.confidence*100).toFixed(0)}%</div>
+            <div style={{ fontFamily:'JetBrains Mono, monospace', fontSize:13, color:HEAT_COLOR(r.confidence) }}>{r.confidence.toFixed(1)}%</div>
           </div>
         ))}
       </div>
