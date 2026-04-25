@@ -9,9 +9,10 @@ interface Band {
 interface Props { 
   bands: Band[]
   noisyBands: string[]
+  bandInfo?: { total_bands: number; bands_used: number; bands_removed: number; removed_ranges: string[] }
 }
 
-export default function BandExplorer({ bands, noisyBands }: Props) {
+export default function BandExplorer({ bands, noisyBands, bandInfo }: Props) {
   const [activeBand, setActiveBand] = useState(0)
 
   const activeBandData = bands[activeBand] || { band_id: '001', wavelength: '405nm' }
@@ -19,7 +20,9 @@ export default function BandExplorer({ bands, noisyBands }: Props) {
   return (
     <div style={{ width:210, background:'rgba(13,13,20,0.98)', borderRight:'1px solid var(--border)', display:'flex', flexDirection:'column', overflow:'hidden', flexShrink:0 }}>
       <div style={{ padding:'14px 14px 10px', borderBottom:'1px solid var(--border)', flexShrink:0 }}>
-        <div style={{ fontSize:9, letterSpacing:'0.14em', color:'rgba(255,255,255,0.3)', marginBottom:10, fontFamily:'JetBrains Mono,monospace' }}>SPECTRAL BAND EXPLORER</div>
+        <div style={{ fontSize:9, letterSpacing:'0.14em', color:'rgba(255,255,255,0.3)', marginBottom:10, fontFamily:'JetBrains Mono,monospace' }}>
+          {bandInfo ? `${bandInfo.total_bands} bands → ${bandInfo.bands_used} used (${bandInfo.bands_removed} removed)` : 'SPECTRAL BAND EXPLORER'}
+        </div>
         <div style={{ fontFamily:'JetBrains Mono,monospace', fontSize:22, fontWeight:600, color:'#00e5ff', marginBottom:4 }}>
           Band {activeBandData.band_id}
         </div>

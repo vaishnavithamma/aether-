@@ -43,14 +43,17 @@ const Dashboard: React.FC<Props> = ({ result, uploadResult, onNewAnalysis }) => 
       </div>
       {/* 3-column layout */}
       <div style={{ display:'flex', flex:1, overflow:'hidden' }}>
-        <BandExplorer bands={uploadResult.bands || []} noisyBands={result.noisy_bands || []} />
+        <BandExplorer bands={uploadResult.bands || []} noisyBands={result.noisy_bands || []} bandInfo={uploadResult.band_info} />
         <SplitViewer
           rgbImage={result.rgb_image || ''}
           heatmapOverlay={result.heatmap_overlay || ''}
           heatmapRaw={result.heatmap_raw || ''}
           anomalyMask={result.anomaly_mask || ''}
+          regions={result.anomaly_regions || []}
+          imageShape={uploadResult.shape}
+          selectedRegionId={selectedAnomaly?.id}
         />
-        <MetricsPanel regions={result.anomaly_regions} metadata={result.pipeline_metadata} onSelectAnomaly={setSelectedAnomaly} />
+        <MetricsPanel regions={result.anomaly_regions} metrics={result.metrics} metadata={result.pipeline_metadata} onSelectAnomaly={setSelectedAnomaly} />
       </div>
       {selectedAnomaly && <AnomalyDetail region={selectedAnomaly} onClose={() => setSelectedAnomaly(null)} fileHash={uploadResult.file_hash} />}
     </div>

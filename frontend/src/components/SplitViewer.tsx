@@ -1,20 +1,45 @@
-import React, { useState, useRef, useCallback } from 'react'
+import React, { useState, useRef, useCallback, useEffect } from 'react'
 
-interface Props {
-  rgbImage: string        // base64 of actual uploaded image
-  heatmapOverlay: string  // base64 of blend overlay
-  heatmapRaw: string      // base64 of pure inferno heatmap
-  anomalyMask: string     // base64 of binary mask
+import type { AnomalyRegion } from '../types'
+
+interface SplitViewerProps {
+  rgbImage: string
+  heatmapOverlay: string
+  anomalyMask: string
+  regions?: AnomalyRegion[]
+  imageShape?: { width: number; height: number; channels: number }
+  selectedRegionId?: number
 }
 
 type Mode = 'overlay'|'rgb'|'heatmap'|'mask'
 
-export default function SplitViewer({ rgbImage, heatmapOverlay, heatmapRaw, anomalyMask }: Props) {
+// BUG FIX 1: Define red color constants for anomaly region rendering
+const ANOMALY_RED_FILL    = 'rgba(255, 30, 30, 0.25)'
+const ANOMALY_RED_STROKE  = 'rgba(255, 30, 30, 0.90)'
+const ANOMALY_RED_LABEL   = 'rgba(255, 30, 30, 1.00)'
+const ANOMALY_WHITE_TEXT  = 'rgba(255, 255, 255, 1.00)'
+
+export default function SplitViewer({ rgbImage, heatmapOverlay, heatmapRaw, anomalyMask, regions = [], imageShape = {width:800, height:600, channels:100}, selectedRegionId }: SplitViewerProps) {
   const [split, setSplit]     = useState(50)
   const [mode,  setMode]      = useState<Mode>('overlay')
   const [opacity, setOpacity] = useState(85)
   const isDragging            = useRef(false)
   const containerRef          = useRef<HTMLDivElement>(null)
+  
+  const heatmapRef = useRef<HTMLDivElement>(null)
+  const [canvasDims, setCanvasDims] = useState({ width: 800, height: 600 })
+  
+  useEffect(() => {
+    if (!heatmapRef.current) return
+    const observer = new ResizeObserver(entries => {
+      setCanvasDims({
+        width: entries[0].contentRect.width,
+        height: entries[0].contentRect.height
+      })
+    })
+    observer.observe(heatmapRef.current)
+    return () => observer.disconnect()
+  }, [])
 
   const rightSrc = mode==='rgb' ? rgbImage : mode==='heatmap' ? heatmapRaw : mode==='mask' ? anomalyMask : heatmapOverlay
 
@@ -48,15 +73,127 @@ export default function SplitViewer({ rgbImage, heatmapOverlay, heatmapRaw, anom
             </div>
 
             {/* RIGHT: Anomaly view */}
-            <div style={{ position:'absolute', top:0, left:`${split}%`, right:0, height:'100%', overflow:'hidden' }}>
+            <div ref={heatmapRef} style={{ position:'absolute', top:0, left:`${split}%`, right:0, height:'100%', overflow:'hidden' }}>
               {rightSrc
-                ? <img src={`data:image/jpeg;base64,${rightSrc}`} alt="Anomaly" style={{ ...imgStyle, opacity: opacity/100 }}/>
+                ? <img src={`data:image/jpeg;base64,${rightSrc}`} alt="Anomaly" style={{ ...imgStyle, opacity: opacity/100, objectFit:'fill' }}/>
                 : <div style={{ width:'100%', height:'100%', background:'#0a0a12', display:'flex', alignItems:'center', justifyContent:'center' }}>
                     <span style={{ fontSize:12, color:'rgba(255,255,255,0.2)', fontFamily:'JetBrains Mono,monospace' }}>Processing...</span>
                   </div>}
               <div style={{ position:'absolute', top:10, left:10, padding:'3px 10px', background:'rgba(5,5,8,0.85)', borderRadius:4, fontSize:10, color:'#ff6b35', fontFamily:'JetBrains Mono,monospace', border:'1px solid rgba(255,107,53,0.3)', letterSpacing:'0.06em' }}>
                 {mode==='rgb'?'RGB COMPOSITE':mode==='heatmap'?'ANOMALY HEATMAP (RAW)':mode==='mask'?'BINARY MASK':'HEATMAP OVERLAY'}
               </div>
+
+              {/* Regions SVG Overlay */}
+              {(mode === 'heatmap' || mode === 'overlay') && regions && imageShape && (
+                // BUG FIX 4: SVG overlay must perfectly cover the heatmap image
+                <svg style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', pointerEvents:'none', overflow:'visible', zIndex:10 }}>
+                  <style>
+                    {`
+                      @keyframes region-pulse {
+                        0%, 100% { transform: scale(1); opacity: 0.6; }
+                        50% { transform: scale(1.3); opacity: 0.2; }
+                      }
+                      .region-pulse { animation: region-pulse 1.5s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+                    `}
+                  </style>
+                  {regions.map((r, index) => {
+                    const canvasWidth = canvasDims.width;
+                    const canvasHeight = canvasDims.height;
+                    
+                    // BUG FIX 2: Scale normalized coordinates to canvas display size
+                    const displayX = r.coords ? r.coords.norm_x * canvasWidth : r.centroid.x;
+                    const displayY = r.coords ? r.coords.norm_y * canvasHeight : r.centroid.y;
+                    
+                    let boxX = displayX - 10;
+                    let boxY = displayY - 10;
+                    let boxW = 20;
+                    let boxH = 20;
+                    
+                    if (r.coords && r.coords.norm_bbox) {
+                        boxX = r.coords.norm_bbox.min_x * canvasWidth;
+                        boxY = r.coords.norm_bbox.min_y * canvasHeight;
+                        boxW = Math.max(14, (r.coords.norm_bbox.max_x - r.coords.norm_bbox.min_x) * canvasWidth);
+                        boxH = Math.max(14, (r.coords.norm_bbox.max_y - r.coords.norm_bbox.min_y) * canvasHeight);
+                    }
+                    
+                    const minRadius = 5;
+                    const naturalRadius = Math.sqrt(r.pixel_count / Math.PI);
+                    const renderRadius = Math.max(minRadius, naturalRadius);
+                    const opacity_val = Math.max(0.35, r.confidence);
+                    const label = index + 1;
+                    
+                    const isSelected = r.id === selectedRegionId;
+                    const finalOpacity = isSelected ? 1.0 : opacity_val * (opacity / 100);
+                    const strokeWidth = isSelected ? 3 : 1;
+                    
+                    return (
+                      <g key={r.id}>
+                        {/* BUG FIX 2A: Red filled bounding box with transparent fill */}
+                        {r.coords && (
+                          <rect
+                            x={boxX}
+                            y={boxY}
+                            width={boxW}
+                            height={boxH}
+                            fill={ANOMALY_RED_FILL}
+                            stroke={ANOMALY_RED_STROKE}
+                            strokeWidth={1.5}
+                            strokeDasharray="5 2"
+                            opacity={finalOpacity}
+                          />
+                        )}
+                        
+                        {/* Highlight selected region with pulsing ring */}
+                        {isSelected && (
+                          <circle
+                            cx={displayX}
+                            cy={displayY}
+                            r={renderRadius + 6}
+                            fill="none"
+                            stroke={ANOMALY_RED_STROKE}
+                            strokeWidth={1.5}
+                            opacity={0.6}
+                            className="region-pulse"
+                          />
+                        )}
+                        
+                        {/* BUG FIX 2B: Red solid dot at centroid */}
+                        <circle
+                          cx={displayX}
+                          cy={displayY}
+                          r={renderRadius}
+                          fill="rgba(255, 30, 30, 0.70)"
+                          stroke="rgba(255, 255, 255, 0.80)"
+                          opacity={finalOpacity}
+                          strokeWidth={strokeWidth}
+                        />
+                        
+                        {/* BUG FIX 2C: Region number badge */}
+                        <circle
+                          cx={boxX + boxW - 6}
+                          cy={boxY + 6}
+                          r={8}
+                          fill="rgba(0, 0, 0, 0.80)"
+                          stroke={ANOMALY_RED_STROKE}
+                          strokeWidth={1.2}
+                        />
+                        <text
+                          x={boxX + boxW - 6}
+                          y={boxY + 6 + 3.5}
+                          textAnchor="middle"
+                          fontSize={8}
+                          fontFamily="monospace"
+                          fontWeight="bold"
+                          fill={ANOMALY_WHITE_TEXT}
+                          style={{ userSelect: 'none', pointerEvents: 'none' }}
+                        >
+                          {label}
+                        </text>
+                      </g>
+                    )
+                  })}
+                </svg>
+              )}
 
               {/* Inferno colorbar */}
               {(mode==='heatmap'||mode==='overlay') && (
@@ -65,6 +202,10 @@ export default function SplitViewer({ rgbImage, heatmapOverlay, heatmapRaw, anom
                   <div style={{ display:'flex', justifyContent:'space-between' }}>
                     <span style={{ fontSize:9, color:'rgba(255,255,255,0.4)', fontFamily:'JetBrains Mono,monospace' }}>LOW</span>
                     <span style={{ fontSize:9, color:'rgba(255,255,255,0.4)', fontFamily:'JetBrains Mono,monospace' }}>HIGH</span>
+                  </div>
+                  {/* BUG FIX 5: Add a small legend note for the red anomaly overlays */}
+                  <div style={{ fontSize:'10px', color:'rgba(255, 30, 30, 0.85)', marginTop:'4px', fontFamily:'monospace', letterSpacing:'0.5px' }}>
+                    ■ ANOMALY REGIONS (1–{regions.length})
                   </div>
                 </div>
               )}
