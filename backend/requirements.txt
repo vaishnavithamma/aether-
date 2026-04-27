@@ -3,9 +3,9 @@ uvicorn==0.29.0
 numpy==1.26.4
 opencv-python-headless==4.9.0.80
 python-multipart==0.0.9
-scipy==1.13.1
-scikit-learn==1.4.2
-scikit-image==0.22.0
-Pillow==10.3.0
-pydantic==2.0.0
-matplotlib==3.8.0
+scipy
+scikit-learn
+scikit-image
+Pillow
+pydantic
+matplotlib
